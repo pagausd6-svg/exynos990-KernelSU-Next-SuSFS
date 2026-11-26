@@ -15,13 +15,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make zip unzip curl git cpio libelf-dev gcc-aarch64-linux-gnu python3
+          sudo apt-get install -y bc bison flex libssl-dev make zip unzip curl git cpio libelf-dev gcc-aarch64-linux-gnu python3 file
 
       - name: Download Toolchains (Clang r370808 + GCC 4.9)
         run: |
           mkdir -p ../tc/clang10 ../tc/gcc49
-          curl -sL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-11.0.0_r1/clang-r370808.tar.gz" | tar -xz -C ../tc/clang10
+          curl -fsSL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-11.0.0_r18/clang-r370808.tar.gz" -o /tmp/clang.tar.gz
+          file /tmp/clang.tar.gz
+          tar -xzf /tmp/clang.tar.gz -C ../tc/clang10
           git clone --depth=1 -b android-10.0.0_r47 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 ../tc/gcc49
+          test -x ../tc/clang10/bin/clang
 
       - name: Build Kernel for SM-G985F
         run: |
@@ -37,24 +40,10 @@ jobs:
           cat arch/arm64/configs/ksu.config >> out_g985f/.config
           make $COMMON "KBUILD_HOSTCFLAGS=$HCF" "HOSTCFLAGS=$HCF" -j"$(nproc)" olddefconfig
 
-          python3 - <<'EOF'
-          import os
-          p = "out_g985f/.config"
-          lines = open(p).readlines()
-          out = []
-          for l in lines:
-              if l.startswith("CONFIG_EXTRA_FIRMWARE="):
-                  val = l.split("=", 1)[1].strip().strip('"')
-                  kept = []
-                  for item in val.split():
-                      rel = item.lstrip("/")
-                      if os.path.exists(os.path.join("firmware", rel)):
-                          kept.append(item)
-                  out.append('CONFIG_EXTRA_FIRMWARE="' + " ".join(kept) + '"\n')
-              else:
-                  out.append(l)
-          open(p, "w").writelines(out)
-          EOF
+          echo "=== FIRMWARE CONFIG ==="
+          grep -E "^CONFIG_EXTRA_FIRMWARE" out_g985f/.config || true
+          echo "=== FIRMWARE FILES IN REPO ==="
+          find firmware -maxdepth 3 -type f 2>/dev/null || true
 
           make $COMMON "KBUILD_HOSTCFLAGS=$HCF" "HOSTCFLAGS=$HCF" "KCFLAGS=$KCF" -j"$(nproc)" Image
 
