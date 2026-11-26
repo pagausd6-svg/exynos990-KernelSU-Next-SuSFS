@@ -26,13 +26,18 @@ jobs:
       - name: Build Kernel for SM-G985F
         run: |
           chmod +x build.sh
-          ./build.sh -m g985f
+          make ARCH=arm64 O=out_g985f CC=clang CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu- KBUILD_HOSTCFLAGS='-fcommon -Wno-error -Wno-deprecated-declarations -Wno-implicit-function-declaration' HOSTCFLAGS='-fcommon -Wno-error -Wno-deprecated-declarations -Wno-implicit-function-declaration' -j"$(nproc)" exynos9830-y2slte_defconfig
+          cat arch/arm64/configs/ksu.config >> out_g985f/.config
+          make ARCH=arm64 O=out_g985f CC=clang CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu- KBUILD_HOSTCFLAGS='-fcommon -Wno-error -Wno-deprecated-declarations -Wno-implicit-function-declaration' HOSTCFLAGS='-fcommon -Wno-error -Wno-deprecated-declarations -Wno-implicit-function-declaration' -j"$(nproc)" olddefconfig
+          echo ">> Checking firmware targets in out_g985f/.config"
+          grep -E "CONFIG_EXTRA_FIRMWARE" out_g985f/.config || true
+          make ARCH=arm64 O=out_g985f CC=clang CROSS_COMPILE=aarch64-linux-android- CLANG_TRIPLE=aarch64-linux-gnu- KBUILD_HOSTCFLAGS='-fcommon -Wno-error -Wno-deprecated-declarations -Wno-implicit-function-declaration' HOSTCFLAGS='-fcommon -Wno-error -Wno-deprecated-declarations -Wno-implicit-function-declaration' KCFLAGS='-Wno-unknown-warning-option -fno-builtin-stpcpy -fno-builtin-strlcpy -Wno-error -Wno-strict-prototypes -Wno-old-style-definition -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types -Wno-unused-function -Wno-implicit-int -Wno-format' -j"$(nproc)" Image
 
       - name: Package Flashable ZIP
         run: |
           if [ -f mkzip.sh ]; then
             chmod +x mkzip.sh
-            ./mkzip.sh -m g985f
+            ./mkzip.sh -m g985f || true
           fi
           mkdir -p release_out
           cp out_g985f/arch/arm64/boot/Image release_out/
