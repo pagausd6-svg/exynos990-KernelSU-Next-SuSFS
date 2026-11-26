@@ -1,0 +1,45 @@
+name: Build G985F Kernel (KSU-Next + SuSFS)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev make zip unzip curl git cpio libelf-dev gcc-aarch64-linux-gnu python3
+
+      - name: Download Toolchains (Clang r370808 + GCC 4.9)
+        run: |
+          mkdir -p ../tc/clang10 ../tc/gcc49
+          curl -sL "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-11.0.0_r1/clang-r370808.tar.gz" | tar -xz -C ../tc/clang10
+          git clone --depth=1 -b android-10.0.0_r47 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 ../tc/gcc49
+
+      - name: Build Kernel for SM-G985F
+        run: |
+          chmod +x build.sh
+          ./build.sh -m g985f
+
+      - name: Package Flashable ZIP
+        run: |
+          if [ -f mkzip.sh ]; then
+            chmod +x mkzip.sh
+            ./mkzip.sh -m g985f
+          fi
+          mkdir -p release_out
+          cp out_g985f/arch/arm64/boot/Image release_out/
+          cp -f *.zip release_out/ 2>/dev/null || true
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-G985F-KSUNext-SuSFS
+          path: release_out/
